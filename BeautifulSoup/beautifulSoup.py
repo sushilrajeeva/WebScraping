@@ -9,6 +9,8 @@ import requests
 import httpx
 import random
 
+import re
+
 import pandas as pd
 
 # To avoid 403 scraping https error i am using scrapfly sdk python api to retrieve the data
@@ -84,16 +86,43 @@ if response.status_code == 200 and data.get('result'):
         salary_text = salary_span.text.strip() if salary_span else "N/A"
         
         
+        # Initialize average salary values
+        avg_yearly_salary = None
+        avg_hourly_salary = None
+        
+        # Compute average yearly salary if salary information is available
+        if 'a year' in salary_text:
+            salary_range = re.findall(r'\$[\d,]+', salary_text)
+            if salary_range and len(salary_range) == 2:
+                low = int(salary_range[0].replace('$', '').replace(',', ''))
+                high = int(salary_range[1].replace('$', '').replace(',', ''))
+                avg_yearly_salary = (low + high) / 2
+            elif salary_range:
+                avg_yearly_salary = int(salary_range[0].replace('$', '').replace(',', ''))
+        elif 'an hour' in salary_text:
+            salary_range = re.findall(r'\$[\d,]+', salary_text)
+            if salary_range and len(salary_range) == 2:
+                low = int(salary_range[0].replace('$', '').replace(',', ''))
+                high = int(salary_range[1].replace('$', '').replace(',', ''))
+                avg_hourly_salary = (low + high) / 2
+            elif salary_range:
+                avg_hourly_salary = int(salary_range[0].replace('$', '').replace(',', ''))
+            avg_yearly_salary = avg_hourly_salary * 1920
+        
+        # Compute average hourly salary if avg_yearly_salary is available
+        if avg_yearly_salary:
+            avg_hourly_salary = avg_yearly_salary / 1920
+        
         # Append the job details to the list
-        job_data.append([index + 1, job_title_text, company_name_text, job_location_text, salary_text])
-    
+        job_data.append([index + 1, job_title_text, company_name_text, job_location_text, avg_yearly_salary, avg_hourly_salary])
     
     # Create a DataFrame from the job data
-    df = pd.DataFrame(job_data, columns=["Sl No", "Job Title", "Company Name", "Location", "Salary"])
+    df = pd.DataFrame(job_data, columns=["Sl No", "Job Title", "Company Name", "Location", "Avg Yearly Salary", "Avg Hourly Salary"])
 
-    # Print data frame
+    # Print the DataFrame
     print(df)
     print("Size of the dataframe: ", df.size)
+
 
 else:
     print(f"Failed to retrieve the page. Status code: {response.status_code}")
